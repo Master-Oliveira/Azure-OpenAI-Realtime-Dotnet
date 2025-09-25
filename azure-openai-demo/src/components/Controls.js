@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createSession, connectRTC } from '../services/ApiService';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7254/api/AzureOpenAI';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
 
 function Controls({ 
   isConnected, 
