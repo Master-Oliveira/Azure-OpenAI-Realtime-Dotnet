@@ -523,42 +523,6 @@ function Controls({
     }
   };
 
-  // Helper function to format SQL results for LLM summarization
-  const formatSqlResultsForLLM = (data) => {
-    // Handle different response formats that might come from your backend
-    const records = data.records || data.data || data;
-    
-    if (!records || !Array.isArray(records) || records.length === 0) {
-      return "No data found in the database for this query.";
-    }
-    
-    // Format as markdown table for better LLM processing
-    let result = '';
-    
-    // Get column headers from first record
-    const headers = Object.keys(records[0]);
-    
-    // Format table header
-    result += '| ' + headers.join(' | ') + ' |\n';
-    result += '| ' + headers.map(() => '---').join(' | ') + ' |\n';
-    
-    // Add rows (limit to max 20 rows to avoid token limit issues)
-    const maxRows = Math.min(records.length, 20);
-    for (let i = 0; i < maxRows; i++) {
-      result += '| ' + headers.map(h => {
-        const val = records[i][h];
-        return val === null || val === undefined ? 'N/A' : String(val);
-      }).join(' | ') + ' |\n';
-    }
-    
-    // Add summary of remaining rows if any
-    if (records.length > maxRows) {
-      result += `\n*...and ${records.length - maxRows} more rows*\n`;
-    }
-    
-    return result;
-  };
-
   return (
     <div className="controls">
       <button 
