@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
 using realtime_api_dotnet.Services;
+using Azure.Identity;
 
 namespace realtime_api_dotnet.Controllers;
 
@@ -30,12 +31,21 @@ public class AzureOpenAIController : ControllerBase
         _azureOpenAiService = azureOpenAiService;            
     }
 
+    [HttpGet("token")]
+    public IActionResult GetToken()
+    {
+        var credential = new DefaultAzureCredential();
+
+        var token = credential.GetToken(new Azure.Core.TokenRequestContext(new[] { "https://cognitiveservices.azure.com/.default" })).Token;
+
+        return Ok(token);
+    }
+
     [HttpPost("sessions")]
     public async Task<IActionResult> CreateSession([FromBody] SessionRequest request)
     {
         var resourceName = _configuration["AzureOpenAI:ResourceName"];
         var realtimeDeploymentName = _configuration["AzureOpenAI:RealtimeDeploymentName"];
-        var apiKey = _configuration["AzureOpenAI:ApiKey"];
         var apiVersion = _configuration["AzureOpenAI:ApiVersion"];
 
         var sessionsUrl = $"https://{resourceName}.openai.azure.com/openai/realtimeapi/sessions?api-version={apiVersion}";
@@ -48,9 +58,11 @@ public class AzureOpenAIController : ControllerBase
         };
 
         var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        var credential = new DefaultAzureCredential();
         
         _httpClient.DefaultRequestHeaders.Clear();
-        _httpClient.DefaultRequestHeaders.Add("api-key", apiKey);
+        _httpClient.DefaultRequestHeaders.Add("authorization", $"Bearer {credential.GetToken(new Azure.Core.TokenRequestContext(new[] { "https://cognitiveservices.azure.com/.default" })).Token}");
         
         var response = await _httpClient.PostAsync(sessionsUrl, content);
         

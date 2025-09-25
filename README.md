@@ -104,7 +104,6 @@ The `DatabaseImporter` project is a utility to populate an Azure SQL Database wi
        "ResourceName": "your-azure-openai-resource-name",
        "RealtimeDeploymentName": "gpt-4o-realtime-preview",
        "ChatDeploymentName": "gpt-4o",
-       "ApiKey": "your-azure-openai-api-key",
        "ApiVersion": "2025-04-01-preview"
      },
      "DatabaseConnection": "Server=your-server.database.windows.net;Database=your-database;User Id=your-username;Password=your-password;Encrypt=True;TrustServerCertificate=False;",

@@ -5,6 +5,7 @@ using SqlDbSchemaExtractor;
 using SqlDbSchemaExtractor.Schema;
 using realtime_api_dotnet.Controllers;
 using realtime_api_dotnet.Prompts;
+using Azure.Identity;
 
 namespace realtime_api_dotnet.Services;
 
@@ -22,17 +23,12 @@ public class AzureOpenAiService
 
         // Initialize the Azure OpenAI client
         var endpoint = $"https://{resourceName}.openai.azure.com";
-        var key = configuration["AzureOpenAI:ApiKey"];
 
-        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(key))
-        {
-            _logger.LogError("Azure OpenAI configuration missing. Check your app settings.");
-            throw new InvalidOperationException("Azure OpenAI configuration is incomplete");
-        }
+        var credential = new DefaultAzureCredential();
 
         AzureOpenAIClient azureOpenAIClient = new AzureOpenAIClient(
             new Uri(endpoint),
-            new AzureKeyCredential(key)
+            credential
         );
 
         var chatDeploymentName = configuration["AzureOpenAI:ChatDeploymentName"];

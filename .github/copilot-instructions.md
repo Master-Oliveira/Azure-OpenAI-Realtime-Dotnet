@@ -38,7 +38,6 @@ Browser (React) ←→ .NET API ←→ Azure OpenAI Realtime API
     "ResourceName": "your-resource",
     "RealtimeDeploymentName": "gpt-4o-realtime-preview", 
     "ChatDeploymentName": "gpt-4o",
-    "ApiKey": "your-key",
     "ApiVersion": "2025-04-01-preview"
   },
   "DatabaseConnection": "Server=...",
