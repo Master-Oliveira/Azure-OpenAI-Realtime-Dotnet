@@ -8,6 +8,7 @@
 <body>
     <h1>Azure OpenAI Realtime Session</h1>
     <p>WARNING: Don't use this code sample in production with the API key hardcoded. Use a protected backend service to call the sessions API and generate the ephemeral key. Then return the ephemeral key to the client.</p>
+    <input type="text" id="accessToken" placeholder="Enter your Azure Token" style="width: 400px;">
     <button onclick="StartSession()">Start Session</button>
 
     <!-- Log container for API messages -->
@@ -29,10 +30,12 @@
         // The deployment name might not be the same as the model name.
         const DEPLOYMENT = "gpt-4o-mini-realtime-preview"
 		const VOICE = "verse"
-        const ACCESS_TOKEN = ""
+        
 
         async function StartSession() {
             try {
+
+                ACCESS_TOKEN = document.getElementById("accessToken").value;
 
                 // WARNING: Don't use this code sample in production
                 // with the API key hardcoded. 
