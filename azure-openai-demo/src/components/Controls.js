@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createSession, connectRTC } from '../services/ApiService';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
+const API_BASE_URL = process.env.REACT_APP_API_URL + '/api/AzureOpenAI' || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
 
 function Controls({ 
   isConnected, 
@@ -385,61 +385,30 @@ function Controls({
             console.log(`Intent detected: ${isStatisticalQuery ? 'Statistical' : 'Conversational'}`);
 
             if (isStatisticalQuery) {
-              // Show loading state
-              updateStatus('Fetching data...');
-              setCurrentTranscript('Searching for Formula One statistics...');
-
-              console.log("Messages array length: ", messageHistoryRef.current.length);
-              console.log("Message array content:", JSON.stringify(messageHistoryRef.current));
-
-              console.log('querying SQL results for:', transcript);
-              console.log('system prompt is:', systemPromptRef.current);             
-
-              // Get SQL results first before allowing LLM to respond
-              fetch(`${API_BASE_URL}/query`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: transcript, messages: messageHistoryRef.current })
-              })
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error(`Server responded with ${response.status}`);
-                }
-                console.log('Returning response:', response.json);
-                return response.json();
-              })
-              .then(data => {
-                // data is received successfully
-                if (dataChannelRef.current?.readyState === 'open') {
-                  // Format the SQL results for the LLM
-                  const records = data.records || data.data || data;
-                  const recordCount = Array.isArray(records) ? records.length : 0;
-                  addLog(`✅ SQL results received: ${recordCount} records`);
-
-                  const formattedResults = formatSqlResultsForLLM(data);
-                  console.log('Formatted SQL results:', formattedResults);
-
-                  // Send a new message with SQL results
-                  dataChannelRef.current.send(JSON.stringify({
-                    type: 'conversation.item.create',
-                    item: {
-                      type: 'message',
-                      role: 'user',
-                      content: [
-                        {
-                          type: 'input_text',
-                          text: `Question: ${transcript}\n\nHere are the Formula One statistics that answer this question:\n${formattedResults}\n\nPlease summarize these statistics in a clear, concise response.`
-                        }
-                      ]
+              // It's a conversational query, let the LLM respond naturally
+              addLog('💬 Conversational message detected by Azure OpenAI');
+              
+              // Send the original question directly
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'message',
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: transcript
                     }
-                  }));
-
-                  // Request a response after creating the item
-                  dataChannelRef.current.send(JSON.stringify({
-                    type: 'response.create'
-                  }));
+                  ]
                 }
-              });
+              }));
+
+              // Request a response
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'response.create'
+              }));
+
+              updateStatus('Generating response...');
             } else {
               // It's a conversational query, let the LLM respond naturally
               addLog('💬 Conversational message detected by Azure OpenAI');

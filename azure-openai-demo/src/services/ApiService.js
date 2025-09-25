@@ -1,5 +1,5 @@
 // src/services/ApiService.js
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7254';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net';
 
 export const createSession = async (voice) => {
   try {
