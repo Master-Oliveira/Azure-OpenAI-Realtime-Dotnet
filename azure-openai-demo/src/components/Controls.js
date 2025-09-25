@@ -214,21 +214,6 @@ function Controls({
   };
 };
   
-  // Helper function to convert AudioBuffer to 16-bit PCM
-  const convertToPCM16 = (audioBuffer) => {
-    const channelData = audioBuffer.getChannelData(0); // Mono - get the first channel
-    const pcmData = new Int16Array(channelData.length);
-    
-    // Convert Float32 to Int16
-    for (let i = 0; i < channelData.length; i++) {
-      // Convert float (-1.0 to 1.0) to int16 (-32768 to 32767)
-      const s = Math.max(-1, Math.min(1, channelData[i]));
-      pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-    }
-    
-    return pcmData;
-  };
-  
   // Helper function to convert ArrayBuffer to base64
   const arrayBufferToBase64 = (buffer) => {
     const bytes = new Uint8Array(buffer);

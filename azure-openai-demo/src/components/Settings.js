@@ -32,7 +32,7 @@ function Settings({ settings, setSettings, addLog }) {
         ...savedSettings
       }));
     }
-  }, []);
+  }, [setSettings]);
 
   return (
     <div className="settings">
