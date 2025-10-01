@@ -93,7 +93,7 @@ function Controls({
           })
           .then(response => {
             if (!response.ok) {
-              throw new Error(`Intent classification failed with ${response.status}`);
+              throw new Error(`Get conversation failed with ${response.status}`);
             }
             return response.json();
           })
@@ -101,11 +101,16 @@ function Controls({
   }
 
   const requestWelcomeMessage = async (conversationId) => {
-    const result = await fetch(`${DIRECTLINE_URL}/conversations/${conversationId}/activities`, {
-      method: 'POST',
+    const raw = "{\n    \"from\": {\n        \"id\": \"12345\",\n        \"name\": \"usuario\"\n    },\n    \"name\": \"requestWelcomeDialog\",\n    \"type\": \"event\",\n    \"value\": '{\"canal\": \"voz\", \"origen\": \"pruebas_microsoft_frontal\"}'\n}";
+
+    const requestOptions = {
+      method: "POST",
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
-      body: JSON.stringify({ from: { id: '12345', name: 'usuario' }, name: 'requestWelcomeDialog', type: 'event', value: "{ canal:'voz', origen:'pruebas_microsoft_frontal'}" })
-    })
+      body: raw,
+      redirect: "follow"
+    };
+
+    const result = await fetch(`${DIRECTLINE_URL}/conversations/${conversationId}/activities`, requestOptions)
     .then(response => {
       if (!response.ok) {
         throw new Error(`Welcome message request failed with ${response.status}`);
@@ -190,33 +195,33 @@ function Controls({
   const stopConversation = () => {
   stopRecording();
 
-  // Close WebSocket connection
-  if (webSocketRef.current) {
-    try {
-      webSocketRef.current.close();
-    } catch (err) {
-      // Ignore errors during cleanup
+    // Close WebSocket connection
+    if (webSocketRef.current) {
+      try {
+        webSocketRef.current.close();
+      } catch (err) {
+        // Ignore errors during cleanup
+      }
+      webSocketRef.current = null;
     }
-    webSocketRef.current = null;
-  }
 
-  // Close data channel and peer connection
-  if (dataChannelRef.current) {
-    try {
-      dataChannelRef.current.close();
-    } catch (err) {
-      // Ignore errors during cleanup
+    // Close data channel and peer connection
+    if (dataChannelRef.current) {
+      try {
+        dataChannelRef.current.close();
+      } catch (err) {
+        // Ignore errors during cleanup
+      }
+      dataChannelRef.current = null;
     }
-    dataChannelRef.current = null;
-  }
-  
-  if (peerConnectionRef.current) {
-    try {
-      peerConnectionRef.current.close();
-    } catch (err) {
-      // Ignore errors during cleanup
-    }
-    peerConnectionRef.current = null;
+    
+    if (peerConnectionRef.current) {
+      try {
+        peerConnectionRef.current.close();
+      } catch (err) {
+        // Ignore errors during cleanup
+      }
+      peerConnectionRef.current = null;
   }
   
   // Stop audio tracks
