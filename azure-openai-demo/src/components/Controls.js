@@ -564,31 +564,6 @@ function Controls({
     }
   };
 
-  // Helper function for direct LLM response when classification fails
-  const handleDirectLLMResponse = (text) => {
-    if (dataChannelRef.current?.readyState === 'open') {
-      dataChannelRef.current.send(JSON.stringify({
-        type: 'conversation.item.create',
-        item: {
-          type: 'message',
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text
-            }
-          ]
-        }
-      }));
-      
-      dataChannelRef.current.send(JSON.stringify({
-        type: 'response.create'
-      }));
-      
-      updateStatus('Responding...');
-    }
-  };
-
   return (
     <div className="controls">
       <button 
