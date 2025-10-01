@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Text;
 using System.Text.Json;
-using realtime_api_dotnet.Services;
 using Azure.Identity;
 
 namespace realtime_api_dotnet.Controllers;
@@ -13,22 +12,15 @@ public class AzureOpenAIController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AzureOpenAIController> _logger;
-    private readonly DatabaseService _databaseService;
-    private readonly AzureOpenAiService _azureOpenAiService;
-    //private readonly Kernel _kernel;
 
     public AzureOpenAIController(
         IConfiguration configuration,
         HttpClient httpClient, 
-        ILogger<AzureOpenAIController> logger, 
-        DatabaseService databaseService,
-        AzureOpenAiService azureOpenAiService)
+        ILogger<AzureOpenAIController> logger)
     {
         _configuration = configuration;
         _httpClient = httpClient;
         _logger = logger;
-        _databaseService = databaseService;
-        _azureOpenAiService = azureOpenAiService;            
     }
 
     [HttpGet("token")]
@@ -111,89 +103,6 @@ public class AzureOpenAIController : ControllerBase
 
         var answerSdp = await response.Content.ReadAsStringAsync();
         return Content(answerSdp, "application/sdp");
-    }
-
-    /// <summary>
-    /// Classifies the intent of the user prompt into "statistical" or "conversational" so the LLM can handle the request appropriately.
-    /// If the intent is "statistical", the front end will then call the query endpoint so the NL2SQL is used to answer the question based
-    /// on the data in the database. If the intent is "conversational", the LLM is free to respond on its own.
-    /// </summary>
-    /// <param name="request">QueryRequest object, including chat history.</param>
-    /// <returns></returns>
-    [HttpPost("classify-intent")]
-    public async Task<IActionResult> ClassifyIntent([FromBody] QueryRequest request)
-    {
-        try
-        {
-            string conversationHistory = string.Join("\n", request.Messages.Select(m => $"{(m.Sender.Equals("user", StringComparison.OrdinalIgnoreCase) ? "User" : "Assistant")}: {m.Text}"));
-
-            _logger.LogInformation("Processing intent classification for: {Query}", request.Query);
-
-            if (string.IsNullOrEmpty(request.Query))
-            {
-                return BadRequest(new { error = "Query cannot be empty" });
-            }
-
-            bool isStatisticalQuery = await _azureOpenAiService.ClassifyIntent(conversationHistory, request.Query);
-
-            return Ok(isStatisticalQuery);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during intent classification");
-            return StatusCode(500, new { error = "Internal server error", details = ex.Message });
-        }
-    }
-
-    /// <summary>
-    /// Classifies the intent of the user prompt into "statistical" or "conversational" so the LLM can handle the request appropriately.
-    /// If the intent is "statistical", the front end will then call the query endpoint so the NL2SQL is used to answer the question based
-    /// on the data in the database. If the intent is "conversational", the LLM is free to respond on its own.
-    /// </summary>
-    /// <param name="request">QueryRequest object, including chat history.</param>
-    /// <returns></returns>
-    [HttpPost("query")]
-    public async Task<IActionResult> ExecuteNaturalLanguageQuery([FromBody] QueryRequest request)
-    {
-        try
-        {
-            var currentUserQuery = request.Query;
-
-            var conversationHistory = string.Join("\n", request.Messages.Select(m => $"{(m.Sender.Equals("user", StringComparison.OrdinalIgnoreCase) ? "User" : "Assistant")}: {m.Text}"));
-
-            var rewrittenQuery = await _azureOpenAiService.RewriteQuery(conversationHistory, request.Query);
-
-            // set a retry of generating and executing the SQL query 3 times
-            const int MaxRetries = 3;
-            int attemptCount = 0;
-            var generatedSqlQuery = string.Empty;
-            var errorMessage = string.Empty;
-
-            while (attemptCount < MaxRetries) {
-
-                try
-                {
-                    generatedSqlQuery = await _azureOpenAiService.GenerateSqlQuery(rewrittenQuery, generatedSqlQuery, errorMessage);
-
-                    var results = await _databaseService.ExecuteQueryAsync(generatedSqlQuery);
-
-                    return Ok(results);
-                }
-                catch (Exception ex)
-                {
-                    attemptCount++;
-
-                    errorMessage = ex.Message;
-                }
-            }
-
-            return StatusCode(500, new { errorMessage });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing query");
-            return StatusCode(500, new { error = ex.Message });
-        }
     }
 
     public class ChatMessageDto

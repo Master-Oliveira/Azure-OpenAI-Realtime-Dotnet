@@ -1,4 +1,3 @@
-using realtime_api_dotnet.Services;
 using System.Security.Authentication;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +10,6 @@ builder.Configuration
     .AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<DatabaseService>();
-builder.Services.AddSingleton<AzureOpenAiService>();
 
 builder.WebHost.ConfigureKestrel(options =>
 {

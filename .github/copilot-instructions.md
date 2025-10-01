@@ -78,7 +78,6 @@ Located in `AzureOpenAiService.ClassifyIntent()` - determines if query needs dat
 | System Behavior | `Prompts/CorePrompts.cs` | All LLM prompts and AI behavior |
 | Intent Logic | `Services/AzureOpenAiService.cs` | Query classification and NL2SQL |
 | Frontend Logic | `src/components/Controls.js` | WebRTC, audio processing, intent handling |
-| Data Access | `Services/DatabaseService.cs` | SQL execution with error handling |
 
 ### Prompt Management (`CorePrompts.cs`)
 - `GetSystemPrompt()` - Main AI assistant behavior

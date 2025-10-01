@@ -4,7 +4,7 @@ import { createSession, connectRTC } from '../services/ApiService';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL + '/api/AzureOpenAI' || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
 const DIRECTLINE_URL = process.env.REACT_APP_DIRECTLINE_URL || 'https://europe.directline.botframework.com/v3/directline';
-const DIRECTLINE_SECRET = process.env.REACT_APP_DIRECTLINE_SECRET || 'eyJhbGciOiJSUzI1NiIsImtpZCI6Il9aNGdIZFFoT0Y2Xy1TM2tqUjdVUDgtOG4zRSIsIng1dCI6Il9aNGdIZFFoT0Y2Xy1TM2tqUjdVUDgtOG4zRSIsInR5cCI6IkpXVCJ9.eyJib3QiOiJzYW5pYS1jaGF0LWRldiIsInNpdGUiOiI2WXI1dUh5S1lURSIsImNvbnYiOiI4R2luNmpXVHhSUzhmR3k3WkpLbjJiLWV1IiwibmJmIjoxNzU5MzEwNTc3LCJleHAiOjE3NTkzMTQxNzcsImlzcyI6Imh0dHBzOi8vZGlyZWN0bGluZS5ib3RmcmFtZXdvcmsuY29tLyIsImF1ZCI6Imh0dHBzOi8vZGlyZWN0bGluZS5ib3RmcmFtZXdvcmsuY29tLyJ9.4vcYYcNRBzn8nSuMcP4yRIr1zADgHGRhkzm5iTFe4_FlUNWwuNC6XUIVwOAp6qzJlRfRlkOkwx3o9gvEdDE8dbN0vTNwX4waNuVZ2iyeyvNH38c1EgXvFj4tDlYsEX4-KcZtwSXFFth_-wOqWdgHjbX5ZGvxoD_-CmV3u_ZVNECJObGYAWkX7tH6jHZ14LMkNsrDVP7Wy46E56u-dPozc9uLT8XQR3TQwzU4mS4qTOCAkzhIk2UN02-41jD4ma5mCJbXzuho7uzEb2QudykRdCgjaeFD-SL3bOmP5VKjXyOq-e0o0gbwfOotDc2hlr--5EF0fpbH3yzssi5_JYei6A';
+const DIRECTLINE_SECRET = process.env.REACT_APP_DIRECTLINE_SECRET || '6Yr5uHyKYTE.GpDNA3KUY-DAL8nYwmmPBf0DaUwmib5hzMUcnUiut7g';
 
 function Controls({ 
   isConnected, 
@@ -77,7 +77,7 @@ function Controls({
       await initializeWebSocket(directLineConversationRef.current);
 
       // Request welcome message
-      // await requestWelcomeMessage(directLineConversationRef.current.conversationId);
+      await requestWelcomeMessage(directLineConversationRef.current.conversationId);
       
       setIsConnected(true);
     } catch (err) {
@@ -104,7 +104,7 @@ function Controls({
     const result = await fetch(`${DIRECTLINE_URL}/conversations/${conversationId}/activities`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
-      body: JSON.stringify({ from: { id: '12345', name: 'usuario' }, name: 'requestWelcomeDialog', type: 'event', value: { canal:'voz', origen:'pruebas_microsoft_frontal'} })
+      body: JSON.stringify({ from: { id: '12345', name: 'usuario' }, name: 'requestWelcomeDialog', type: 'event', value: "{ canal:'voz', origen:'pruebas_microsoft_frontal'}" })
     })
     .then(response => {
       if (!response.ok) {

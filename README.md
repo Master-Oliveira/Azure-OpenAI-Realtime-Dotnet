@@ -250,11 +250,6 @@ Browser (React) ←→ .NET API ←→ Azure OpenAI Realtime API
   - SQL query generation using database schema
   - Chat completion orchestration
 
-- **DatabaseService.cs**: Data access layer providing:
-  - SQL query execution with proper error handling
-  - Connection management and timeout configuration
-  - Result formatting for AI consumption
-
 - **CorePrompts.cs**: Centralized prompt management containing:
   - System prompts for AI behavior configuration
   - Intent classification prompts
