@@ -45,7 +45,7 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Azure OpenAI Realtime API Demo</h1>
+      <h1>Azure Voice Live Demo</h1>
       
       <Settings 
         settings={settings} 

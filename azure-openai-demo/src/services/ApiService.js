@@ -23,6 +23,27 @@ export const createSession = async (voice) => {
   }
 };
 
+export const generateToken = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/AzureOpenAI/token`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to generate token - ${response.status}: ${errorText}`);
+    }
+
+    return await response.text();
+  } catch (error) {
+    console.error('Error generating token:', error);
+    throw error;
+  }
+};
+
 export const connectRTC = async (sdp, ephemeralKey, deploymentName, region) => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/AzureOpenAI/rtc`, {

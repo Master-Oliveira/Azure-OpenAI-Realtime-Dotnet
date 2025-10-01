@@ -28,7 +28,7 @@ public class AzureOpenAIController : ControllerBase
     {
         var credential = new DefaultAzureCredential();
 
-        var token = credential.GetToken(new Azure.Core.TokenRequestContext(new[] { "https://cognitiveservices.azure.com/.default" })).Token;
+        var token = credential.GetToken(new Azure.Core.TokenRequestContext(new[] { "https://ai.azure.com/.default" })).Token;
 
         return Ok(token);
     }

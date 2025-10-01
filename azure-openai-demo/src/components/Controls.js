@@ -1,6 +1,6 @@
 // src/components/Controls.js
 import React, { useState, useRef, useEffect } from 'react';
-import { createSession, connectRTC } from '../services/ApiService';
+import { createSession, generateToken } from '../services/ApiService';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL + '/api/AzureOpenAI' || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
 const DIRECTLINE_URL = process.env.REACT_APP_DIRECTLINE_URL || 'https://europe.directline.botframework.com/v3/directline';
@@ -23,18 +23,18 @@ function Controls({
   const [directLineActivities, setDirectLineActivities] = useState([]);
   const messageHistoryRef = useRef([]);
   
-  const peerConnectionRef = useRef(null);
-  const dataChannelRef = useRef(null);
   const audioStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
-  const sessionIdRef = useRef(null);
-  const ephKeyRef = useRef(null);
   const webSocketRef = useRef(null);
+  const webSocketVoiceRef = useRef(null);
   const directLineConversationRef = useRef(null);
 
   // For audio processing
   const audioContextRef = useRef(null);
   const audioBufferRef = useRef(null);
+  const audioQueueRef = useRef([]);
+  const isPlayingAudioRef = useRef(false);
+  const currentAudioSourceRef = useRef(null);
   
   // Initialize audio context safely
   useEffect(() => {
@@ -55,30 +55,19 @@ function Controls({
     try {
       updateStatus('Initializing…');
 
-      // Create session
-      const sessionResponse = await createSession(settings.voice);
-      sessionIdRef.current = sessionResponse.id;
-      ephKeyRef.current = sessionResponse.client_secret.value;
+      // Generate token
+      const token = await generateToken();
 
-      // Store the system prompt from the backend response
-      if (sessionResponse.system_prompt) {
-        systemPromptRef.current = sessionResponse.system_prompt;
-        addLog(`System prompt received (${systemPromptRef.current.length} chars)`);
-      }
-      
-      addLog(`Session ID → ${sessionIdRef.current}`);
-      
-      // Initialize WebRTC
-      await initializeWebRTC();
+      // Initialize WebSocket connection for Voice Live API
+      await initializeWebSocketVoice(token);
 
       // Create Direct Line conversation (Bot Framework)
       directLineConversationRef.current = await createDirectLineConversation();
 
       await initializeWebSocket(directLineConversationRef.current);
 
-      // Request welcome message
-      await requestWelcomeMessage(directLineConversationRef.current.conversationId);
       
+
       setIsConnected(true);
     } catch (err) {
       addLog(`❌ ${err.message}`);
@@ -120,6 +109,29 @@ function Controls({
     return result;
   }
 
+  const initializeWebSocketVoice = async (token) => {
+    const resource = "aisa-macae-ujyrbtzcb57v";
+
+    webSocketVoiceRef.current = new WebSocket(`wss://${resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model=gpt-realtime&Authorization=Bearer ${token}`);
+    addLog(`Connecting WebSocket Voice Live conversation`);
+
+    webSocketVoiceRef.current.onopen = () => {
+      addLog('WebSocket Voice connected');
+      handleDataChannelOpen();
+    }
+      
+    webSocketVoiceRef.current.onmessage = (event) => {
+      handleDataChannelMessage(event);
+    };
+    webSocketVoiceRef.current.onerror = (error) => {
+      addLog(`❌ WebSocket Voice error: ${error.message}`);
+    };
+    webSocketVoiceRef.current.onclose = () => addLog('WebSocket Voice disconnected');
+    
+    // Local audio
+    await setupAudio();
+  };
+
   const initializeWebSocket = async (directLineConversation) => {
     webSocketRef.current = new WebSocket(directLineConversation.streamUrl);
     addLog(`Connecting WebSocket conversation: ${directLineConversation.conversationId}`);
@@ -154,9 +166,9 @@ function Controls({
 
           if (lastBotMessage.text.trim().length > 0) {
             // Send the bot's response to the voice conversation if WebRTC is connected
-            if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+            if (webSocketVoiceRef.current && webSocketVoiceRef.current.readyState === WebSocket.OPEN) {
               // Send the bot's response as user input to continue the voice conversation
-              dataChannelRef.current.send(JSON.stringify({
+              webSocketVoiceRef.current.send(JSON.stringify({
                 type: 'conversation.item.create',
                 item: {
                   type: 'message',
@@ -171,7 +183,7 @@ function Controls({
               }));
 
               // Request a response
-              dataChannelRef.current.send(JSON.stringify({
+              webSocketVoiceRef.current.send(JSON.stringify({
                 type: 'response.create',
                 response: {
                   conversation: 'none'
@@ -205,25 +217,16 @@ function Controls({
       webSocketRef.current = null;
     }
 
-    // Close data channel and peer connection
-    if (dataChannelRef.current) {
+    // Close WebSocket connection
+    if (webSocketVoiceRef.current) {
       try {
-        dataChannelRef.current.close();
+        webSocketVoiceRef.current.close();
       } catch (err) {
         // Ignore errors during cleanup
       }
-      dataChannelRef.current = null;
+      webSocketVoiceRef.current = null;
     }
-    
-    if (peerConnectionRef.current) {
-      try {
-        peerConnectionRef.current.close();
-      } catch (err) {
-        // Ignore errors during cleanup
-      }
-      peerConnectionRef.current = null;
-  }
-  
+
   // Stop audio tracks
   if (audioStreamRef.current) {
     audioStreamRef.current.getTracks().forEach(t => t.stop());
@@ -247,48 +250,6 @@ function Controls({
   updateStatus('Disconnected');
 };
 
-  const initializeWebRTC = async () => {
-    peerConnectionRef.current = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
-    // Remote audio playback
-    peerConnectionRef.current.addEventListener('track', ({ track }) => {
-      if (track.kind !== 'audio') return;
-      const audio = new Audio();
-      audio.srcObject = new MediaStream([track]);
-      audio.play();
-    });
-
-    // DataChannel
-    dataChannelRef.current = peerConnectionRef.current.createDataChannel('realtime');
-    dataChannelRef.current.onopen = handleDataChannelOpen;
-    dataChannelRef.current.onclose = () => addLog('DataChannel closed');
-    dataChannelRef.current.onerror = (e) => addLog(`DataChannel error: ${e}`);
-    dataChannelRef.current.onmessage = handleDataChannelMessage;
-
-    // Local audio
-    await setupAudio();
-
-    const offer = await peerConnectionRef.current.createOffer({ offerToReceiveAudio: true });
-    await peerConnectionRef.current.setLocalDescription(offer);
-    await waitForIceGathering();
-
-    const rtcUrl = `https://${settings.region}.realtimeapi-preview.ai.azure.com/v1/realtimertc?model=${settings.deploymentName}`;
-    addLog(`RTC URL → ${rtcUrl}`);
-
-    const answerSdp = await connectRTC(
-      peerConnectionRef.current.localDescription.sdp,
-      ephKeyRef.current,
-      settings.deploymentName,
-      settings.region
-    );
-
-    await peerConnectionRef.current.setRemoteDescription({ type: 'answer', sdp: answerSdp });
-
-    addLog('✅ WebRTC connected');
-  };
-
   const setupAudio = async () => {
     // Get audio with specific constraints for 24kHz compatibility with Azure
     audioStreamRef.current = await navigator.mediaDevices.getUserMedia({ 
@@ -299,11 +260,6 @@ function Controls({
         noiseSuppression: true,
       } 
     });
-
-    // add track to peer connection early (before negotiating)
-    audioStreamRef.current.getAudioTracks().forEach(track => 
-      peerConnectionRef.current.addTrack(track, audioStreamRef.current)
-    );
 
     // We'll still use webm/opus for recording as it's more efficient
     // but we'll convert to PCM before sending to Azure
@@ -373,7 +329,7 @@ function Controls({
     
     // Process function to convert and send audio data
     const pcmProcessor = () => {
-      if (!isRecording || !dataChannelRef.current || dataChannelRef.current.readyState !== 'open') {
+      if (!webSocketVoiceRef.current || webSocketVoiceRef.current.readyState !== WebSocket.OPEN) {
         return;
       }
       
@@ -392,7 +348,7 @@ function Controls({
       
       // Send to Azure OpenAI
       try {
-        dataChannelRef.current.send(JSON.stringify({
+        webSocketVoiceRef.current.send(JSON.stringify({
           type: 'input_audio_buffer.append',
           audio: base64
         }));
@@ -423,51 +379,132 @@ function Controls({
       audioBufferRef.current = null;
     }
     
-    if (dataChannelRef.current?.readyState === 'open') {
-      dataChannelRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
+    if (webSocketVoiceRef.current?.readyState === WebSocket.OPEN) {
+      webSocketVoiceRef.current.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
     }
   };
 
-  const waitForIceGathering = () => {
-    return new Promise((resolve) => {
-      if (peerConnectionRef.current.iceGatheringState === 'complete') return resolve();
-      const handler = () => {
-        if (peerConnectionRef.current.iceGatheringState === 'complete') {
-          peerConnectionRef.current.removeEventListener('icegatheringstatechange', handler);
-          resolve();
-        }
-      };
-      peerConnectionRef.current.addEventListener('icegatheringstatechange', handler);
-      setTimeout(resolve, 7000); // failsafe
-    });
-  };
-
-  const handleDataChannelOpen = () => {
-    addLog('DataChannel open – sending session.update');
+  const handleDataChannelOpen = async () => {
+    addLog('DataChannel voice open – sending session.update');
     updateStatus('Connected');
 
-    console.log('HandleDataChannelOpen System prompt:', systemPromptRef.current);
+    systemPromptRef.current = "You are a service just reads messages exactly as they are sent to you. When you receive a message, just repeat it back exactly as it is, without any changes or additional commentary. \
+                If the message is empty or contains only whitespace, do not respond. \
+                Do not add any extra text or explanations. Just return the message as it is."
+
+    console.log('HandleDataChannelOpen Voice System prompt:', systemPromptRef.current);
 
     const cfg = {
-      type: 'session.update',
-      session: {
-        instructions: systemPromptRef.current,
-        modalities: ['audio', 'text'],
-        input_audio_transcription: {
-          model: 'whisper-1'
-        },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.6,
-          prefix_padding_ms: 500,
-          silence_duration_ms: 1200,
-          create_response: false // disabling auto-response so the response is only provided once the backend has returned data
-        }
-      }
-    };
-    dataChannelRef.current.send(JSON.stringify(cfg));
+            type: "session.update",
+            session: {
+                instructions: systemPromptRef.current,
+                modalities: ['audio', 'text'],
+                input_audio_transcription: {
+                  model: 'whisper-1'
+                },
+                input_audio_echo_cancellation: {type: "server_echo_cancellation"},
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.6,
+                  prefix_padding_ms: 500,
+                  silence_duration_ms: 1200,
+                  create_response: false // disabling auto-response so the response is only provided once the backend has returned data
+                }
+            }
+        };
+    webSocketVoiceRef.current.send(JSON.stringify(cfg));
     startRecording();
+
+    // Request welcome message
+    await requestWelcomeMessage(directLineConversationRef.current.conversationId);
   };
+
+ // Enhanced audio playback with queuing
+const playAudioChunk = async (audioBuffer) => {
+  try {
+    // Ensure we have an audio context
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+    }
+    
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+    
+    // Add to queue
+    audioQueueRef.current.push(audioBuffer);
+    
+    // Process queue if not already playing
+    if (!isPlayingAudioRef.current) {
+      processAudioQueue();
+    }
+    
+  } catch (error) {
+    addLog(`❌ Error queuing audio chunk: ${error.message}`);
+  }
+};
+
+const processAudioQueue = async () => {
+  if (audioQueueRef.current.length === 0) {
+    isPlayingAudioRef.current = false;
+    return;
+  }
+  
+  isPlayingAudioRef.current = true;
+  const audioBuffer = audioQueueRef.current.shift();
+  
+  try {
+    // Convert the raw PCM data to AudioBuffer
+    const audioData = new Int16Array(audioBuffer);
+    const audioBufferNode = audioContextRef.current.createBuffer(
+      1,                          // mono channel
+      audioData.length,           // length in samples
+      24000                       // sample rate (24kHz for Azure OpenAI)
+    );
+    
+    // Convert Int16 PCM to Float32 for Web Audio API
+    const channelData = audioBufferNode.getChannelData(0);
+    for (let i = 0; i < audioData.length; i++) {
+      channelData[i] = audioData[i] / 32768.0; // Convert to [-1, 1] range
+    }
+    
+    // Create and play the audio
+    const source = audioContextRef.current.createBufferSource();
+    currentAudioSourceRef.current = source;
+    source.buffer = audioBufferNode;
+    source.connect(audioContextRef.current.destination);
+    
+    // When this chunk finishes, process the next one
+    source.onended = () => {
+      currentAudioSourceRef.current = null;
+      processAudioQueue();
+    };
+    
+    source.start();
+    
+  } catch (error) {
+    addLog(`❌ Error playing audio chunk: ${error.message}`);
+    isPlayingAudioRef.current = false;
+    processAudioQueue(); // Try next chunk
+  }
+};
+
+// Function to stop current audio playback
+const stopCurrentAudio = () => {
+  if (currentAudioSourceRef.current) {
+    try {
+      currentAudioSourceRef.current.stop();
+      currentAudioSourceRef.current = null;
+    } catch (error) {
+      // Ignore errors when stopping
+    }
+  }
+  
+  // Clear the queue
+  audioQueueRef.current = [];
+  isPlayingAudioRef.current = false;
+};
 
   const handleDataChannelMessage = ({ data }) => {
     let msg;
@@ -477,8 +514,33 @@ function Controls({
     switch (msg.type) {
       case 'session.created':
         break;
+      
+      case 'input_audio_buffer.speech_started':
+        // Stop current audio playback when user starts speaking
+        stopCurrentAudio();
+        addLog('🎤 User started speaking - stopping audio playback');
+        break;
+
+      case 'response.audio.delta':
+        if (msg.delta) {
+          try {
+            // Decode base64 audio data
+            const audioData = atob(msg.delta);
+            const audioArray = new Uint8Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+              audioArray[i] = audioData.charCodeAt(i);
+            }
+            
+            // Convert to PCM audio and play
+            playAudioChunk(audioArray.buffer);
+          } catch (error) {
+            addLog(`❌ Error processing audio delta: ${error.message}`);
+          }
+        }
+        break;
 
       case 'conversation.item.input_audio_transcription.completed':
+      case 'response.audio_transcript.done':
         const transcript = msg.transcript ?? '';
 
         // Update both the ref and the state for the message history
@@ -487,8 +549,8 @@ function Controls({
         // Add user message from speech transcription
         addMessage('user', transcript);
 
-        // First use the LLM to determine if this is a statistical question where we need to call the query API in the backend, or just a general question where the LLM can respond directly
-        if (dataChannelRef.current?.readyState === 'open') {
+        // Send the user message to Direct Line for bot processing
+        if (webSocketVoiceRef.current?.readyState === WebSocket.OPEN) {
           setCurrentTranscript('Analyzing question...');
 
           console.log("Messages array length: ", messageHistoryRef.current.length);
