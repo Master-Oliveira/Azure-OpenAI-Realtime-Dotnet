@@ -3,6 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createSession, connectRTC } from '../services/ApiService';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL + '/api/AzureOpenAI' || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
+const DIRECTLINE_URL = process.env.REACT_APP_DIRECTLINE_URL || 'https://europe.directline.botframework.com/v3/directline';
+const DIRECTLINE_SECRET = process.env.REACT_APP_DIRECTLINE_SECRET || 'eyJhbGciOiJSUzI1NiIsImtpZCI6Il9aNGdIZFFoT0Y2Xy1TM2tqUjdVUDgtOG4zRSIsIng1dCI6Il9aNGdIZFFoT0Y2Xy1TM2tqUjdVUDgtOG4zRSIsInR5cCI6IkpXVCJ9.eyJib3QiOiJzYW5pYS1jaGF0LWRldiIsInNpdGUiOiI2WXI1dUh5S1lURSIsImNvbnYiOiI4R2luNmpXVHhSUzhmR3k3WkpLbjJiLWV1IiwibmJmIjoxNzU5MzEwNTc3LCJleHAiOjE3NTkzMTQxNzcsImlzcyI6Imh0dHBzOi8vZGlyZWN0bGluZS5ib3RmcmFtZXdvcmsuY29tLyIsImF1ZCI6Imh0dHBzOi8vZGlyZWN0bGluZS5ib3RmcmFtZXdvcmsuY29tLyJ9.4vcYYcNRBzn8nSuMcP4yRIr1zADgHGRhkzm5iTFe4_FlUNWwuNC6XUIVwOAp6qzJlRfRlkOkwx3o9gvEdDE8dbN0vTNwX4waNuVZ2iyeyvNH38c1EgXvFj4tDlYsEX4-KcZtwSXFFth_-wOqWdgHjbX5ZGvxoD_-CmV3u_ZVNECJObGYAWkX7tH6jHZ14LMkNsrDVP7Wy46E56u-dPozc9uLT8XQR3TQwzU4mS4qTOCAkzhIk2UN02-41jD4ma5mCJbXzuho7uzEb2QudykRdCgjaeFD-SL3bOmP5VKjXyOq-e0o0gbwfOotDc2hlr--5EF0fpbH3yzssi5_JYei6A';
 
 function Controls({ 
   isConnected, 
@@ -18,6 +20,7 @@ function Controls({
   messages
 }) {
   const [isRecording, setIsRecording] = useState(false);
+  const [directLineActivities, setDirectLineActivities] = useState([]);
   const messageHistoryRef = useRef([]);
   
   const peerConnectionRef = useRef(null);
@@ -26,6 +29,8 @@ function Controls({
   const mediaRecorderRef = useRef(null);
   const sessionIdRef = useRef(null);
   const ephKeyRef = useRef(null);
+  const webSocketRef = useRef(null);
+  const directLineConversationRef = useRef(null);
 
   // For audio processing
   const audioContextRef = useRef(null);
@@ -49,7 +54,7 @@ function Controls({
   const startConversation = async () => {
     try {
       updateStatus('Initializing…');
-      
+
       // Create session
       const sessionResponse = await createSession(settings.voice);
       sessionIdRef.current = sessionResponse.id;
@@ -65,6 +70,14 @@ function Controls({
       
       // Initialize WebRTC
       await initializeWebRTC();
+
+      // Create Direct Line conversation (Bot Framework)
+      directLineConversationRef.current = await createDirectLineConversation();
+
+      await initializeWebSocket(directLineConversationRef.current);
+
+      // Request welcome message
+      // await requestWelcomeMessage(directLineConversationRef.current.conversationId);
       
       setIsConnected(true);
     } catch (err) {
@@ -73,12 +86,120 @@ function Controls({
     }
   };
 
+  const createDirectLineConversation = async() => {
+    const response = await fetch(`${DIRECTLINE_URL}/conversations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` }
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Intent classification failed with ${response.status}`);
+            }
+            return response.json();
+          })
+    return response;
+  }
+
+  const requestWelcomeMessage = async (conversationId) => {
+    const result = await fetch(`${DIRECTLINE_URL}/conversations/${conversationId}/activities`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
+      body: JSON.stringify({ from: { id: '12345', name: 'usuario' }, name: 'requestWelcomeDialog', type: 'event', value: { canal:'voz', origen:'pruebas_microsoft_frontal'} })
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Welcome message request failed with ${response.status}`);
+      }
+      return response.json();
+    })
+    return result;
+  }
+
+  const initializeWebSocket = async (directLineConversation) => {
+    webSocketRef.current = new WebSocket(directLineConversation.streamUrl);
+    addLog(`Connecting WebSocket conversation: ${directLineConversation.conversationId}`);
+
+    webSocketRef.current.onopen = () => addLog('WebSocket connected');
+    webSocketRef.current.onmessage = (event) => {
+      handleWebSocketMessage(event);
+    };
+    webSocketRef.current.onclose = () => addLog('WebSocket disconnected');
+  };
+
+  const handleWebSocketMessage = (event) => {
+    try {
+      // Parse the Direct Line WebSocket message
+      const data = JSON.parse(event.data);
+      
+      if (data.activities && Array.isArray(data.activities)) {
+        // Store all activities
+        setDirectLineActivities(data.activities);
+        
+        // Find the last message from the bot (not from user)
+        const botMessages = data.activities.filter(activity => 
+          activity.from && 
+          activity.from.id !== '12345' && // Filter out user messages (user ID we use)
+          activity.type === 'message' && 
+          activity.text
+        );
+        
+        if (botMessages.length > 0) {
+          const lastBotMessage = botMessages[botMessages.length - 1];
+          addLog(`📨 Bot message received: ${lastBotMessage.text}`);
+
+          if (lastBotMessage.text.trim().length > 0) {
+            // Send the bot's response to the voice conversation if WebRTC is connected
+            if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+              // Send the bot's response as user input to continue the voice conversation
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'message',
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: lastBotMessage.text
+                    }
+                  ]
+                }
+              }));
+
+              // Request a response
+              dataChannelRef.current.send(JSON.stringify({
+                type: 'response.create',
+                response: {
+                  conversation: 'none'
+                }
+              }));
+
+            }
+            
+          }
+        }
+      }
+    } catch (error) {
+      addLog(`❌ Error parsing WebSocket message: ${error.message}`);
+      console.error('WebSocket message parsing error:', error);
+    }
+  }
+
   // Add a ref to store the system prompt
   const systemPromptRef = useRef(null);
 
   const stopConversation = () => {
   stopRecording();
-  
+
+  // Close WebSocket connection
+  if (webSocketRef.current) {
+    try {
+      webSocketRef.current.close();
+    } catch (err) {
+      // Ignore errors during cleanup
+    }
+    webSocketRef.current = null;
+  }
+
   // Close data channel and peer connection
   if (dataChannelRef.current) {
     try {
@@ -210,7 +331,7 @@ function Controls({
   // For debugging purposes
   mediaRecorderRef.current.ondataavailable = async (evt) => {
     if (evt.data.size === 0) return;
-    addLog(`Audio chunk size: ${evt.data.size}`);
+    if (evt.data.size > 1000) addLog(`Audio chunk size: ${evt.data.size}`);
   };
 };
   
@@ -369,82 +490,22 @@ function Controls({
           console.log("Message array content:", JSON.stringify(messageHistoryRef.current));
 
           // make a call to AOAI to classify the intent of the question
-          fetch(`${API_BASE_URL}/classify-intent`, {
+          fetch(`${DIRECTLINE_URL}/conversations/${directLineConversationRef.current.conversationId}/activities`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: transcript, messages: messageHistoryRef.current })
+            headers: { 'Content-Type': 'application/json','Authorization': `Bearer ${DIRECTLINE_SECRET}` },
+            body: JSON.stringify({ from: { id: '12345', name: 'usuario' }, type: 'message', text: transcript })
           })
           .then(response => {
             if (!response.ok) {
-              throw new Error(`Intent classification failed with ${response.status}`);
+              throw new Error(`Bot invocation ${response.status}`);
             }
             return response.json();
           })
-          .then(isStatisticalQuery => {
-            addLog(`Intent detected: ${isStatisticalQuery ? 'Statistical' : 'Conversational'}`);
-            console.log(`Intent detected: ${isStatisticalQuery ? 'Statistical' : 'Conversational'}`);
-
-            if (isStatisticalQuery) {
-              // It's a conversational query, let the LLM respond naturally
-              addLog('💬 Conversational message detected by Azure OpenAI');
-              
-              // Send the original question directly
-              dataChannelRef.current.send(JSON.stringify({
-                type: 'conversation.item.create',
-                item: {
-                  type: 'message',
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'input_text',
-                      text: transcript
-                    }
-                  ]
-                }
-              }));
-
-              // Request a response
-              dataChannelRef.current.send(JSON.stringify({
-                type: 'response.create'
-              }));
-
-              updateStatus('Generating response...');
-            } else {
-              // It's a conversational query, let the LLM respond naturally
-              addLog('💬 Conversational message detected by Azure OpenAI');
-              
-              // Send the original question directly
-              dataChannelRef.current.send(JSON.stringify({
-                type: 'conversation.item.create',
-                item: {
-                  type: 'message',
-                  role: 'user',
-                  content: [
-                    {
-                      type: 'input_text',
-                      text: transcript
-                    }
-                  ]
-                }
-              }));
-
-              // Request a response
-              dataChannelRef.current.send(JSON.stringify({
-                type: 'response.create'
-              }));
-
-              updateStatus('Generating response...');
-            }
+          .then(data => {
+            console.log("Direct Line response data:", data);
           })
-        .catch(err => {
-          console.log('Error in intent processing:', err);
-          // Handle error from backend
-          addLog(`❌ Intent detection error: ${err.message}`);
-
-          // Fall back to direct LLM response
-          handleDirectLLMResponse(transcript);
-        });
-      }
+          
+        }
       break;
           
       case 'response.created':
@@ -479,6 +540,11 @@ function Controls({
           // Clear current transcript placeholder after adding to history
           setCurrentTranscript('');
         }
+        break;
+      case 'response.done':
+        // Response fully completed; nothing to accumulate as bubbles already added
+        // Ensure placeholder is cleared
+        setCurrentTranscript('');
         break;
 
       case 'response.completed':
