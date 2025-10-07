@@ -19,7 +19,7 @@ const createDirectLineConversation = async(DIRECTLINE_URL, DIRECTLINE_SECRET) =>
 }
 
 // Token ChatbotRN
-app.http('directLineConversation', {
+app.http('directLineChatConversation', {
     route: 'AzureOpenAI/chatbotrn/directLineConversation',
     methods: ['GET', 'POST'],
     authLevel: 'function',
@@ -32,7 +32,7 @@ app.http('directLineConversation', {
 });
 
 // Token SanIAChat
-app.http('directLineConversation', {
+app.http('directLineSaniaConversation', {
     route: 'AzureOpenAI/saniachat/directLineConversation',
     methods: ['GET', 'POST'],
     authLevel: 'function',
