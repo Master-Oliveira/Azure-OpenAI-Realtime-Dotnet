@@ -1,6 +1,10 @@
 const { app } = require('@azure/functions');
 
-const createDirectLineConversation = async() => {
+const DIRECTLINE_URL = process.env.DIRECTLINE_URL;
+const DIRECTLINE_SECRET_CHATBOTRN = process.env.DIRECTLINE_SECRET_CHATBOTRN;
+const DIRECTLINE_SECRET_SANIACHAT = process.env.DIRECTLINE_SECRET_SANIACHAT;
+
+const createDirectLineConversation = async(DIRECTLINE_URL, DIRECTLINE_SECRET) => {
     const response = await fetch(`${DIRECTLINE_URL}/conversations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` }
@@ -14,43 +18,28 @@ const createDirectLineConversation = async() => {
     return response;
 }
 
-const requestWelcomeMessage = async (conversationId) => {
-    const raw = "{\n    \"from\": {\n        \"id\": \"12345\",\n        \"name\": \"usuario\"\n    },\n    \"name\": \"requestWelcomeDialog\",\n    \"type\": \"event\",\n    \"value\": '{\"canal\": \"voz\", \"origen\": \"pruebas_microsoft_frontal\"}'\n}";
-
-    const requestOptions = {
-      method: "POST",
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
-      body: raw,
-      redirect: "follow"
-    };
-
-    const result = await fetch(`${DIRECTLINE_URL}/conversations/${conversationId}/activities`, requestOptions)
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Welcome message request failed with ${response.status}`);
-      }
-      return response.json();
-    })
-    return result;
-}
-
-const DIRECTLINE_URL = process.env.DIRECTLINE_URL;
-const DIRECTLINE_SECRET = process.env.DIRECTLINE_SECRET;
-
+// Token ChatbotRN
 app.http('directLineConversation', {
-    route: 'AzureOpenAI/directLineConversation',
+    route: 'AzureOpenAI/chatbotrn/directLineConversation',
     methods: ['GET', 'POST'],
     authLevel: 'function',
     handler: async (request, context) => {
-        const DIRECTLINE_URL = process.env.DIRECTLINE_URL;
         context.log(`Http function processed request for url "${request.url}" to "${DIRECTLINE_URL}"`);
-      
-        const directLineConversationRef = await createDirectLineConversation();
-
-        // Request welcome message
-        // await requestWelcomeMessage(directLineConversationRef.conversationId);
+        const directLineConversationRef = await createDirectLineConversation(DIRECTLINE_URL, DIRECTLINE_SECRET_CHATBOTRN);
         const json = JSON.stringify(directLineConversationRef);
         return { body: json };
     }
 });
 
+// Token SanIAChat
+app.http('directLineConversation', {
+    route: 'AzureOpenAI/saniachat/directLineConversation',
+    methods: ['GET', 'POST'],
+    authLevel: 'function',
+    handler: async (request, context) => {
+        context.log(`Http function processed request for url "${request.url}" to "${DIRECTLINE_URL}"`);
+        const directLineConversationRef = await createDirectLineConversation(DIRECTLINE_URL, DIRECTLINE_SECRET_SANIACHAT);
+        const json = JSON.stringify(directLineConversationRef);
+        return { body: json };
+    }
+});
