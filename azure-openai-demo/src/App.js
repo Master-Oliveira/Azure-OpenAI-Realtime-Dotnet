@@ -1,6 +1,5 @@
 // App.js
-import React, { useState } from 'react';
-import Settings from './components/Settings';
+import { useState } from 'react';
 import ChatWindow from './components/ChatWindow';
 import Controls from './components/Controls';
 import Logs from './components/Logs';
@@ -10,12 +9,6 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState('Idle');
   const [isConnected, setIsConnected] = useState(false);
-  const [settings, setSettings] = useState({
-    voice: 'verse',
-    region: 'eastus2',
-    deploymentName: 'gpt-4o-mini-realtime-preview',
-    apiVersion: '2025-04-01-preview'
-  });
   const [messages, setMessages] = useState([]);
   const [currentTranscript, setCurrentTranscript] = useState('');
 
@@ -47,12 +40,6 @@ function App() {
     <div className="container">
       <h1>Azure Voice Live Demo</h1>
       
-      <Settings 
-        settings={settings} 
-        setSettings={setSettings} 
-        addLog={addLog} 
-      />
-
       <ChatWindow 
         messages={messages} 
         currentTranscript={currentTranscript} 
@@ -63,7 +50,6 @@ function App() {
         setIsConnected={setIsConnected}
         updateStatus={updateStatus}
         addLog={addLog}
-        settings={settings}
         addMessage={addMessage}
         updateAssistantMessage={updateAssistantMessage}
         setCurrentTranscript={setCurrentTranscript}

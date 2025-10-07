@@ -1,8 +1,7 @@
 // src/components/Controls.js
-import React, { useState, useRef, useEffect } from 'react';
-import { createSession, generateToken } from '../services/ApiService';
+import { useState, useRef, useEffect } from 'react';
+import { generateToken } from '../services/ApiService';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL + '/api/AzureOpenAI' || 'https://backoffice-realtime-c2cpfcgkgfbpang0.swedencentral-01.azurewebsites.net/api/AzureOpenAI';
 const DIRECTLINE_URL = process.env.REACT_APP_DIRECTLINE_URL || 'https://europe.directline.botframework.com/v3/directline';
 const DIRECTLINE_SECRET = process.env.REACT_APP_DIRECTLINE_SECRET || '6Yr5uHyKYTE.GpDNA3KUY-DAL8nYwmmPBf0DaUwmib5hzMUcnUiut7g';
 
@@ -11,7 +10,6 @@ function Controls({
   setIsConnected, 
   updateStatus, 
   addLog, 
-  settings, 
   addMessage, 
   updateAssistantMessage, 
   setCurrentTranscript,
@@ -112,7 +110,7 @@ function Controls({
   const initializeWebSocketVoice = async (token) => {
     const resource = "aisa-macae-ujyrbtzcb57v";
 
-    webSocketVoiceRef.current = new WebSocket(`wss://${resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model=gpt-realtime&Authorization=Bearer ${token}`);
+    webSocketVoiceRef.current = new WebSocket(`wss://${resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model=gpt-5-mini&Authorization=Bearer ${token}`);
     addLog(`Connecting WebSocket Voice Live conversation`);
 
     webSocketVoiceRef.current.onopen = () => {
@@ -402,6 +400,11 @@ function Controls({
                 input_audio_transcription: {
                   model: 'whisper-1'
                 },
+                voice:{
+                  name: 'es-ES-ElviraNeural',
+                  type: "azure-standard",
+                  temperature: 0.5
+                },
                 input_audio_echo_cancellation: {type: "server_echo_cancellation"},
                 turn_detection: {
                   type: 'server_vad',
@@ -540,7 +543,6 @@ const stopCurrentAudio = () => {
         break;
 
       case 'conversation.item.input_audio_transcription.completed':
-      case 'response.audio_transcript.done':
         const transcript = msg.transcript ?? '';
 
         // Update both the ref and the state for the message history
