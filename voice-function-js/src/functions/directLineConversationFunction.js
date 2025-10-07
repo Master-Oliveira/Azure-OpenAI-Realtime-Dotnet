@@ -22,7 +22,7 @@ const createDirectLineConversation = async(DIRECTLINE_URL, DIRECTLINE_SECRET) =>
 app.http('directLineChatConversation', {
     route: 'AzureOpenAI/chatbotrn/directLineConversation',
     methods: ['GET', 'POST'],
-    authLevel: 'function',
+    authLevel: 'Anonymous',
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}" to "${DIRECTLINE_URL}"`);
         const directLineConversationRef = await createDirectLineConversation(DIRECTLINE_URL, DIRECTLINE_SECRET_CHATBOTRN);
@@ -35,7 +35,7 @@ app.http('directLineChatConversation', {
 app.http('directLineSaniaConversation', {
     route: 'AzureOpenAI/saniachat/directLineConversation',
     methods: ['GET', 'POST'],
-    authLevel: 'function',
+    authLevel: 'Anonymous',
     handler: async (request, context) => {
         context.log(`Http function processed request for url "${request.url}" to "${DIRECTLINE_URL}"`);
         const directLineConversationRef = await createDirectLineConversation(DIRECTLINE_URL, DIRECTLINE_SECRET_SANIACHAT);
