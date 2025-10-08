@@ -110,7 +110,7 @@ function Controls({
   const initializeWebSocketVoice = async (token) => {
     const resource = "aisa-macae-ujyrbtzcb57v";
 
-    webSocketVoiceRef.current = new WebSocket(`wss://${resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model=gpt-5-mini&Authorization=Bearer ${token}`);
+    webSocketVoiceRef.current = new WebSocket(`wss://${resource}.services.ai.azure.com/voice-live/realtime?api-version=2025-10-01&model=gpt-4.1-mini&Authorization=Bearer ${token}`);
     addLog(`Connecting WebSocket Voice Live conversation`);
 
     webSocketVoiceRef.current.onopen = () => {
