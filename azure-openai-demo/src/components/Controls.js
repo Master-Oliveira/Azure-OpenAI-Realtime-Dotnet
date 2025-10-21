@@ -401,7 +401,11 @@ function Controls({
                   model: 'whisper-1'
                 },
                 voice:{
-                  name: 'es-ES-ElviraNeural',
+                  //name: 'es-ES-ElviraNeural',
+                  //name: 'es-ES-IsidoraMultilingualNeural',
+                  //name: 'es-ES-Tristan:DragonHDLatestNeural',
+                  //name: 'es-ES-XimenaNeural',
+                  name: 'es-ES-Ximena:DragonHDLatestNeural',
                   type: "azure-standard",
                   temperature: 0.5
                 },
@@ -409,8 +413,8 @@ function Controls({
                 turn_detection: {
                   type: 'server_vad',
                   threshold: 0.6,
-                  prefix_padding_ms: 500,
-                  silence_duration_ms: 1200,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 500,
                   create_response: false // disabling auto-response so the response is only provided once the backend has returned data
                 }
             }
