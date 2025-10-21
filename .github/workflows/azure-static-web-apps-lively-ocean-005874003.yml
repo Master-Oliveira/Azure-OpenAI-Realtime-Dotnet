@@ -12,6 +12,7 @@ on:
       - main
     paths:
       - 'azure-openai-demo/**'
+  workflow_dispatch:
 
 jobs:
   build_and_deploy_job:
