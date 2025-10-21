@@ -18,7 +18,7 @@ function Controls({
   messages
 }) {
   const [isRecording, setIsRecording] = useState(false);
-  const [directLineActivities, setDirectLineActivities] = useState([]);
+  const [, setDirectLineActivities] = useState([]);
   const messageHistoryRef = useRef([]);
   
   const audioStreamRef = useRef(null);
@@ -88,12 +88,20 @@ function Controls({
   }
 
   const requestWelcomeMessage = async (conversationId) => {
-    const raw = "{\n    \"from\": {\n        \"id\": \"12345\",\n        \"name\": \"usuario\"\n    },\n    \"name\": \"requestWelcomeDialog\",\n    \"type\": \"event\",\n    \"value\": '{\"canal\": \"voz\", \"origen\": \"pruebas_microsoft_frontal\"}'\n}";
+    const payload = {
+      from: {
+        id: "12345",
+        name: "usuario"
+      },
+      name: "requestWelcomeDialog",
+      type: "event",
+      value: '{"canal": "voz", "origen": "pruebas_microsoft_frontal"}'
+    };
 
     const requestOptions = {
       method: "POST",
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DIRECTLINE_SECRET}` },
-      body: raw,
+      body: JSON.stringify(payload),
       redirect: "follow"
     };
 
@@ -386,9 +394,7 @@ function Controls({
     addLog('DataChannel voice open – sending session.update');
     updateStatus('Connected');
 
-    systemPromptRef.current = "You are a service just reads messages exactly as they are sent to you. When you receive a message, just repeat it back exactly as it is, without any changes or additional commentary. \
-                If the message is empty or contains only whitespace, do not respond. \
-                Do not add any extra text or explanations. Just return the message as it is."
+    systemPromptRef.current = "You are a service just reads messages exactly as they are sent to you. When you receive a message, just repeat it back exactly as it is, without any changes or additional commentary. If the message is empty or contains only whitespace, do not respond. Do not add any extra text or explanations. Just return the message as it is.";
 
     console.log('HandleDataChannelOpen Voice System prompt:', systemPromptRef.current);
 
